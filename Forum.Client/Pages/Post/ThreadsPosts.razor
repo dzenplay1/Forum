@@ -1,14 +1,13 @@
-﻿@page "/posts/list/{Page}"
+﻿@page "/thread/{ThreadId}/list/{Page}"
 @inject HttpClient Http
 @inject Blazored.LocalStorage.ILocalStorageService Storage
 @inject Microsoft.AspNetCore.Components.NavigationManager UriHelper
 
 <h3>PostsList</h3>
-
 <div class="container">
 
     <div class="row">
-        @if (posts == null)
+        @if (posts == null || thread == null)
         {
             <p>Loading......</p>
         }
@@ -38,10 +37,19 @@
 
             <div class="col-md-4">
 
+                <div class="card my-4">
+                    <h5 class="card-header">Thread <b>@thread.Name</b></h5>
+                    <div class="card-body">
+                        <img class="card-img-top" src="data:image/jpeg;base64,@Convert.ToBase64String(thread.Image)" width="200" />
+                        <p><b>Description:</b> @thread.Description</p>
+                        <p>Subscribers: #</p>
+                        <button class="btn btn-warning">Subscribe</button>
+                    </div>
+                    
+                </div>
+
                 <!-- Search Widget -->
                 <div class="card my-4">
-                    <h5 class="card-header">Search</h5>
-                    <div class="card-body">
                         <div class="input-group">
                             <input type="text" class="form-control" placeholder="Search for..." @bind="this.SearchTerm" @onkeyup="SearchBoxKeyPress">
                             <div class="input-group-btn">
@@ -56,7 +64,6 @@
                             </div>
                         </div>
                     </div>
-                </div>
 
                 <div class="card my-4">
                     <h5 class="card-header">Order by</h5>
@@ -101,26 +108,33 @@
 
 @code {
     [Parameter]
+    public string ThreadId { get; set; }
+    [Parameter]
     public string Page { get; set; } = "1";
     public string SearchTerm = string.Empty;
-    public string OrderBy { get; set; }
+    public string OrderBy { get; set; } = string.Empty;
 
+    ThreadResponse thread;
     PageResponse<PostResponse> posts;
 
     protected override async Task OnInitializedAsync()
     {
-        //if (Loged = await isLoggedOn())
-        //{
-        //var token = await Storage.GetItemAsStringAsync("JWT-Token");
-        //Http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-        //Admin = await isAdmin();
         await loadPosts();
-        //}
+        await loadThread();
+    }
+
+    async Task loadThread()
+    {
+        var resp = await Http.GetAsync(await Storage.GetItemAsStringAsync("back_uri") + ApiRoutes.Threads.Get.Replace("{id}", ThreadId));
+        if(resp.IsSuccessStatusCode)
+        {
+            thread = await resp.Content.ReadFromJsonAsync<ThreadResponse>();
+        }
     }
 
     async Task loadPosts()
     {
-        posts = await Http.GetFromJsonAsync<PageResponse<PostResponse>>(await Storage.GetItemAsStringAsync("back_uri") + ApiRoutes.Posts.GetAll + "/?PageNumber=" + Page + "&PageSize=2" + "&orderBy=" + OrderBy);
+        posts = await Http.GetFromJsonAsync<PageResponse<PostResponse>>(await Storage.GetItemAsStringAsync("back_uri") + ApiRoutes.Posts.GetAll + "/?PageNumber=" + Page + "&PageSize=2" + "&threadId=" + ThreadId);
     }
 
     protected async Task<bool> isLoggedOn()
@@ -130,7 +144,7 @@
 
     protected async Task PagerPageChanged(int page)
     {
-        UriHelper.NavigateTo("/posts/list/" + page);
+        UriHelper.NavigateTo("/thread/" + ThreadId + "/list/" + Page);
         await loadPosts();
     }
     protected async Task SearchBoxKeyPress(KeyboardEventArgs ev)
@@ -145,7 +159,7 @@
     {
         if (!string.IsNullOrEmpty(SearchTerm))
         {
-            posts = await Http.GetFromJsonAsync<PageResponse<PostResponse>>(await Storage.GetItemAsStringAsync("back_uri") + ApiRoutes.Posts.GetAll + "/?postName=" + SearchTerm + "&orderBy=" + OrderBy);
+            posts = await Http.GetFromJsonAsync<PageResponse<PostResponse>>(await Storage.GetItemAsStringAsync("back_uri") + ApiRoutes.Posts.GetAll + "/?postName=" + SearchTerm + "&threadId=" + ThreadId);
             return;
         }
     }
@@ -153,7 +167,7 @@
     protected async Task ClearSearch()
     {
         SearchTerm = string.Empty;
-        UriHelper.NavigateTo("/posts/list/" + Page);
+        UriHelper.NavigateTo("/thread/" + ThreadId + "/list/" + Page);
         await loadPosts();
     }
     protected async Task ChangeOrdering(ChangeEventArgs e)
@@ -163,3 +177,4 @@
     }
 
 }
+

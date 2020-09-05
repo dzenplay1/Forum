@@ -21,18 +21,11 @@ namespace Forum.Services
             _voteRepository = voteRepository;
         }
 
-        public async Task<IEnumerable<Post>> GetAllAsync(string postName = null, PaginationFilter paginationFilter = null)
+        public async Task<PostsResponse> GetAllAsync(string postName = null, string threadId = null, PaginationFilter paginationFilter = null, string orderByQueryString = null)
         {
-            //if(paginationFilter == null)
-            //{
-            //    return await _postRepository.GetAllAsync(); 
-            //}
-            if(!string.IsNullOrEmpty(postName))
-            {
-                return await _postRepository.GetFilteredAsync(postName);
-            }
-            var skip = (paginationFilter.PageNumber - 1) * paginationFilter.PageSize;
-            return await _postRepository.GetPaged(paginationFilter, skip);
+            var posts = await _postRepository.GetFilteredAndPagedFromThreadAsync(postName, threadId, paginationFilter, orderByQueryString);
+            var amount = await _postRepository.GetCountOfFilteredPostsInThreadAsync(postName, threadId);
+            return new PostsResponse(posts, amount);
         }
 
         public async Task<PostResponse> GetAsync(string id)
@@ -50,15 +43,6 @@ namespace Forum.Services
             return await _postRepository.GetCountOfAllPostsAsync();
         }
 
-        public async Task<IEnumerable<Post>> GetOrderByDateAsync()
-        {
-            return await _postRepository.GetOrderByDateAsync();
-        }
-
-        public async Task<IEnumerable<Post>> GetOrderByVoteAsync()
-        {
-            return await _postRepository.GetOrderByVoteAsync(); 
-        }
 
         public async Task<PostResponse> RemoveAsync(string id)
         {
